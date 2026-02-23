@@ -115,3 +115,4 @@ elif choice == "Verify Blockchain":
         st.success("Blockchain is valid ✔")
     else:
         st.error("Blockchain is NOT valid ❌")
+        
