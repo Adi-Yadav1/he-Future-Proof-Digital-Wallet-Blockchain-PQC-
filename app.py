@@ -1,235 +1,175 @@
-# import streamlit as st
-# from wallet import Wallet
-# from transaction import Transaction
-# from blockchain import Blockchain
-# from ledger import Ledger
-
-# # ---------------- INITIAL SETUP ----------------
-# st.set_page_config(page_title="Quantum-Resistant Blockchain Wallet", layout="centered")
-
-# if "blockchain" not in st.session_state:
-#     ledger = Ledger()
-#     blockchain = Blockchain()
-#     loaded_chain = ledger.load_blockchain()
-#     if loaded_chain:
-#         blockchain.chain = loaded_chain
-#     st.session_state.blockchain = blockchain
-#     st.session_state.ledger = ledger
-
-# if "wallet" not in st.session_state:
-#     st.session_state.wallet = None
-
-# if "tx_pool" not in st.session_state:
-#     st.session_state.tx_pool = []
-
-# # ---------------- UI ----------------
-# st.title("🔐 Quantum-Resistant Blockchain Wallet")
-# st.caption("Post-Quantum Cryptography using Lamport Signatures")
-
-# st.sidebar.title("Menu")
-# choice = st.sidebar.radio(
-#     "Select an action",
-#     [
-#         "Create Wallet",
-#         "Show Wallet Address",
-#         "Create Transaction",
-#         "Mine Block",
-#         "View Blockchain",
-#         "Verify Blockchain",
-#     ],
-# )
-
-# # ---------------- CREATE WALLET ----------------
-# if choice == "Create Wallet":
-#     if st.button("Create New Wallet"):
-#         st.session_state.wallet = Wallet()
-#         st.success("Wallet created successfully!")
-
-# # ---------------- SHOW ADDRESS ----------------
-# elif choice == "Show Wallet Address":
-#     if st.session_state.wallet:
-#         st.code(st.session_state.wallet.get_address())
-#     else:
-#         st.warning("Please create a wallet first.")
-
-# # ---------------- CREATE TRANSACTION ----------------
-# elif choice == "Create Transaction":
-#     if not st.session_state.wallet:
-#         st.warning("Please create a wallet first.")
-#     else:
-#         receiver = st.text_input("Receiver Address")
-#         amount = st.number_input("Amount", min_value=1.0, step=1.0)
-
-#         if st.button("Sign Transaction"):
-#             temp_tx = Transaction(
-#                 sender=st.session_state.wallet.get_address(),
-#                 receiver=receiver,
-#                 amount=amount,
-#                 signature=None,
-#                 public_key=None
-#             )
-
-#             tx_hash = temp_tx.calculate_hash()
-#             signature = st.session_state.wallet.sign(tx_hash)
-
-#             tx = Transaction(
-#                 sender=st.session_state.wallet.get_address(),
-#                 receiver=receiver,
-#                 amount=amount,
-#                 signature=signature,
-#                 public_key=st.session_state.wallet.public_key,
-#                 timestamp=temp_tx.timestamp
-#             )
-
-#             st.session_state.tx_pool.append(tx)
-#             st.success("Transaction signed and added to pool.")
-
-# # ---------------- MINE BLOCK ----------------
-# elif choice == "Mine Block":
-#     if not st.session_state.wallet:
-#         st.warning("Please create a wallet first.")
-#     elif not st.session_state.tx_pool:
-#         st.warning("No transactions to mine.")
-#     else:
-#         if st.button("Mine Block"):
-#             st.session_state.blockchain.add_block(
-#                 st.session_state.tx_pool,
-#                 st.session_state.wallet
-#             )
-#             st.session_state.ledger.save_blockchain(st.session_state.blockchain)
-#             st.session_state.tx_pool = []
-#             st.success("Block mined and saved to blockchain.")
-
-# # ---------------- VIEW BLOCKCHAIN ----------------
-# elif choice == "View Blockchain":
-#     for block in st.session_state.blockchain.chain:
-#         with st.expander(f"Block {block.index}"):
-#             st.write("Timestamp:", block.timestamp)
-#             st.write("Previous Hash:", block.previous_hash)
-#             st.write("Block Hash:", block.hash)
-#             st.write("Transactions:", len(block.transactions))
-
-# # ---------------- VERIFY BLOCKCHAIN ----------------
-# elif choice == "Verify Blockchain":
-#     if st.session_state.blockchain.is_chain_valid():
-#         st.success("Blockchain is valid ✔")
-#     else:
-#         st.error("Blockchain is NOT valid ❌")
-        
-
 import streamlit as st
 import requests
 from wallet import Wallet
 from transaction import Transaction
 
 # ---------------- CONFIG ----------------
-SERVER_URL = "http://10.5.8.183:5000"
+SERVER_URL = "https://he-future-proof-digital-wallet.onrender.com"
 
 st.set_page_config(page_title="Quantum-Resistant Blockchain Wallet", layout="centered")
 
 # ---------------- SESSION STATE ----------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+
 if "wallet" not in st.session_state:
     st.session_state.wallet = None
 
-# ---------------- UI ----------------
-st.title("🔐 Quantum-Resistant Blockchain Wallet")
-st.caption("Multi-User System using Flask Backend + Post-Quantum Cryptography")
+# ---------------- AUTH UI ----------------
+def auth_page():
+    st.title("🔐 Quantum-Resistant Wallet Platform")
 
-st.sidebar.title("Menu")
-choice = st.sidebar.radio(
-    "Select an action",
-    [
-        "Create Wallet",
-        "Show Wallet Address",
-        "Create Transaction",
-        "Mine Block",
-        "View Blockchain",
-        "Verify Blockchain",
-    ],
-)
+    tab1, tab2 = st.tabs(["Login", "Register"])
 
-# ---------------- CREATE WALLET ----------------
-if choice == "Create Wallet":
-    if st.button("Create Wallet"):
-        st.session_state.wallet = Wallet()
-        st.success("Wallet created successfully!")
+    # -------- LOGIN --------
+    with tab1:
+        st.subheader("Login")
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
 
-# ---------------- SHOW ADDRESS ----------------
-elif choice == "Show Wallet Address":
-    if st.session_state.wallet:
-        st.code(st.session_state.wallet.get_address())
-    else:
-        st.warning("Create a wallet first.")
-
-# ---------------- CREATE TRANSACTION ----------------
-elif choice == "Create Transaction":
-    if not st.session_state.wallet:
-        st.warning("Create a wallet first.")
-    else:
-        receiver = st.text_input("Receiver Address")
-        amount = st.number_input("Amount", min_value=1.0, step=1.0)
-
-        if st.button("Send Transaction"):
-            # Create unsigned transaction
-            temp_tx = Transaction(
-                sender=st.session_state.wallet.get_address(),
-                receiver=receiver,
-                amount=amount,
-                signature=None,
-                public_key=None
-            )
-
-            tx_hash = temp_tx.calculate_hash()
-            signature = st.session_state.wallet.sign(tx_hash)
-
-            payload = {
-                "sender": st.session_state.wallet.get_address(),
-                "receiver": receiver,
-                "amount": amount,
-                "timestamp": temp_tx.timestamp,
-                "signature": [sig.hex() for sig in signature],
-                "public_key": [
-                    (pk0.hex(), pk1.hex())
-                    for pk0, pk1 in st.session_state.wallet.public_key
-                ]
-            }
-
+        if st.button("Login"):
             response = requests.post(
-                f"{SERVER_URL}/add_transaction",
-                json=payload
+                f"{SERVER_URL}/login",
+                json={"username": username, "password": password}
             )
 
             if response.status_code == 200:
-                st.success("Transaction sent to server.")
+                data = response.json()
+                st.session_state.logged_in = True
+                st.session_state.user_id = data["user_id"]
+                st.success("Login successful")
+                st.rerun()
             else:
-                st.error(response.json().get("error", "Transaction failed"))
+                st.error("Invalid username or password")
 
-# ---------------- MINE BLOCK ----------------
-elif choice == "Mine Block":
-    if st.button("Mine Block"):
-        response = requests.post(f"{SERVER_URL}/mine")
+    # -------- REGISTER --------
+    with tab2:
+        st.subheader("Register")
+        new_user = st.text_input("New Username")
+        new_pass = st.text_input("New Password", type="password")
 
-        if response.status_code == 200:
-            st.success("Block mined successfully.")
+        if st.button("Register"):
+            response = requests.post(
+                f"{SERVER_URL}/register",
+                json={"username": new_user, "password": new_pass}
+            )
+
+            if response.status_code == 201:
+                st.success("Registration successful. Please login.")
+            else:
+                st.error("Username already exists")
+
+
+# ---------------- DASHBOARD ----------------
+def dashboard():
+    st.sidebar.title("Menu")
+
+    choice = st.sidebar.radio(
+        "Select an option",
+        [
+            "Create Wallet",
+            "Show Wallet Address",
+            "Create Transaction",
+            "Mine Block",
+            "View Blockchain",
+            "Verify Blockchain",
+            "Logout"
+        ]
+    )
+
+    st.title("📊 Wallet Dashboard")
+
+    # -------- CREATE WALLET --------
+    if choice == "Create Wallet":
+        if st.button("Create Wallet"):
+            st.session_state.wallet = Wallet()
+            st.success("Wallet created successfully")
+
+    # -------- SHOW ADDRESS --------
+    elif choice == "Show Wallet Address":
+        if st.session_state.wallet:
+            st.code(st.session_state.wallet.get_address())
         else:
-            st.error(response.json().get("error", "Mining failed"))
+            st.warning("Create a wallet first")
 
-# ---------------- VIEW BLOCKCHAIN ----------------
-elif choice == "View Blockchain":
-    response = requests.get(f"{SERVER_URL}/chain")
-    chain = response.json()
+    # -------- CREATE TRANSACTION --------
+    elif choice == "Create Transaction":
+        if not st.session_state.wallet:
+            st.warning("Create a wallet first")
+        else:
+            receiver = st.text_input("Receiver Address")
+            amount = st.number_input("Amount", min_value=1.0, step=1.0)
 
-    for block in chain:
-        with st.expander(f"Block {block['index']}"):
-            st.write("Timestamp:", block["timestamp"])
-            st.write("Previous Hash:", block["previous_hash"])
-            st.write("Block Hash:", block["hash"])
-            st.write("Transactions:", block["transactions"])
+            if st.button("Send Transaction"):
+                temp_tx = Transaction(
+                    sender=st.session_state.wallet.get_address(),
+                    receiver=receiver,
+                    amount=amount,
+                    signature=None,
+                    public_key=None
+                )
 
-# ---------------- VERIFY BLOCKCHAIN ----------------
-elif choice == "Verify Blockchain":
-    response = requests.get(f"{SERVER_URL}/verify")
-    if response.json()["valid"]:
-        st.success("Blockchain is valid ✔")
-    else:
-        st.error("Blockchain is NOT valid ❌")
+                tx_hash = temp_tx.calculate_hash()
+                signature = st.session_state.wallet.sign(tx_hash)
+
+                payload = {
+                    "sender": st.session_state.wallet.get_address(),
+                    "receiver": receiver,
+                    "amount": amount,
+                    "timestamp": temp_tx.timestamp,
+                    "signature": [s.hex() for s in signature],
+                    "public_key": [
+                        (pk0.hex(), pk1.hex())
+                        for pk0, pk1 in st.session_state.wallet.public_key
+                    ]
+                }
+
+                r = requests.post(f"{SERVER_URL}/add_transaction", json=payload)
+
+                if r.status_code == 200:
+                    st.success("Transaction sent successfully")
+                else:
+                    st.error("Transaction failed")
+
+    # -------- MINE BLOCK --------
+    elif choice == "Mine Block":
+        if st.button("Mine Block"):
+            r = requests.post(f"{SERVER_URL}/mine")
+            if r.status_code == 200:
+                st.success("Block mined successfully")
+            else:
+                st.error("No transactions to mine")
+
+    # -------- VIEW BLOCKCHAIN --------
+    elif choice == "View Blockchain":
+        r = requests.get(f"{SERVER_URL}/chain")
+        for block in r.json():
+            with st.expander(f"Block {block['index']}"):
+                st.write("Hash:", block["hash"])
+                st.write("Previous Hash:", block["previous_hash"])
+                st.write("Transactions:", block["transactions"])
+
+    # -------- VERIFY --------
+    elif choice == "Verify Blockchain":
+        r = requests.get(f"{SERVER_URL}/verify")
+        if r.json()["valid"]:
+            st.success("Blockchain is valid ✔")
+        else:
+            st.error("Blockchain invalid ❌")
+
+    # -------- LOGOUT --------
+    elif choice == "Logout":
+        st.session_state.logged_in = False
+        st.session_state.user_id = None
+        st.session_state.wallet = None
+        st.rerun()
+
+
+# ---------------- MAIN ----------------
+if not st.session_state.logged_in:
+    auth_page()
+else:
+    dashboard()
