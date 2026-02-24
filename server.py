@@ -127,6 +127,15 @@ def verify_chain():
     return jsonify({"valid": blockchain.is_chain_valid()})
 
 
+@app.route("/status", methods=["GET"])
+def status():
+    return {
+        "message": "Quantum-Resistant Blockchain Server Running",
+        "blocks": len(blockchain.chain),
+        "pending_transactions": len(transaction_pool)
+    }
+
+
 # ---------------- START SERVER ----------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
