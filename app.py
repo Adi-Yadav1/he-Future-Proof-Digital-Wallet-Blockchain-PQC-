@@ -4,7 +4,8 @@ from wallet import Wallet
 from transaction import Transaction
 
 # ---------------- CONFIG ----------------
-SERVER_URL = "https://he-future-proof-digital-wallet.onrender.com"
+# SERVER_URL = "https://he-future-proof-digital-wallet.onrender.com"
+SERVER_URL = "http://10.5.8.183:5000"
 
 st.set_page_config(page_title="Quantum-Resistant Blockchain Wallet", layout="centered")
 

@@ -36,24 +36,56 @@ def init_db():
 
 
 def create_user(username, password):
+    """Create a new user with hashed password.
+    
+    Args:
+        username: Username string
+        password: Plain text password
+    
+    Returns:
+        user_id: The ID of the newly created user
+    
+    Raises:
+        ValueError: If username already exists
+    """
     conn = get_db()
     cursor = conn.cursor()
 
-    password_hash = generate_password_hash(password)
+    try:
+        # Hash the password using werkzeug (pbkdf2:sha256 by default)
+        password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
-    cursor.execute(
-        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-        (username, password_hash)
-    )
+        # Insert user into database
+        cursor.execute(
+            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+            (username, password_hash)
+        )
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        user_id = cursor.lastrowid
+        conn.close()
+        
+        return user_id
+        
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError("Username already exists")
 
 
 def authenticate_user(username, password):
+    """Authenticate user by username and password.
+    
+    Args:
+        username: Username string
+        password: Plain text password to verify
+    
+    Returns:
+        user_id if authentication successful, None otherwise
+    """
     conn = get_db()
     cursor = conn.cursor()
 
+    # Fetch user by username
     cursor.execute(
         "SELECT id, password_hash FROM users WHERE username = ?",
         (username,)
@@ -61,8 +93,18 @@ def authenticate_user(username, password):
     user = cursor.fetchone()
     conn.close()
 
-    if user and check_password_hash(user[1], password):
-        return user[0]
+    # If user not found
+    if not user:
+        return None
+    
+    user_id = user[0]
+    stored_hash = user[1]
+
+    # Verify password using werkzeug check_password_hash
+    # check_password_hash(pwhash, password) - pwhash first, password second
+    if check_password_hash(stored_hash, password):
+        return user_id
+    
     return None
 
 

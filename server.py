@@ -33,20 +33,70 @@ miner_wallet = Wallet()
 
 @app.route("/register", methods=["POST"])
 def register():
+    """Register a new user with username and password."""
     data = request.json
+    
+    # Validate input
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    username = data.get("username")
+    password = data.get("password")
+    wallet_address = data.get("wallet_address", "")
+    
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+    
+    # Validate username and password length
+    if len(username.strip()) < 3:
+        return jsonify({"error": "Username must be at least 3 characters"}), 400
+    
+    if len(password) < 4:
+        return jsonify({"error": "Password must be at least 4 characters"}), 400
+    
     try:
-        create_user(data["username"], data["password"])
-        return jsonify({"message": "User registered successfully"}), 201
-    except Exception:
-        return jsonify({"error": "Username already exists"}), 400
+        user_id = create_user(username.strip(), password)
+        
+        # Create profile with wallet address if provided
+        if wallet_address:
+            create_profile(user_id, wallet_address)
+        
+        return jsonify({
+            "message": "User registered successfully",
+            "user_id": user_id
+        }), 201
+    except ValueError as e:
+        # Username already exists
+        return jsonify({"error": str(e)}), 409
+    except Exception as e:
+        # Other database errors
+        return jsonify({"error": "Registration failed"}), 500
 
 
 @app.route("/login", methods=["POST"])
 def login():
+    """Authenticate user and return user_id."""
     data = request.json
-    user_id = authenticate_user(data["username"], data["password"])
+    
+    # Validate input
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+    
+    # Authenticate user
+    user_id = authenticate_user(username.strip(), password)
+    
     if user_id:
-        return jsonify({"message": "Login successful", "user_id": user_id})
+        return jsonify({
+            "message": "Login successful",
+            "user_id": user_id
+        }), 200
+    
     return jsonify({"error": "Invalid credentials"}), 401
 
 
