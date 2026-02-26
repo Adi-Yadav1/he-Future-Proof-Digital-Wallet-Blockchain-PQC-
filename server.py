@@ -10,7 +10,10 @@ from models import (
     get_profile
 )
 
+from flask_cors import CORS
 app = Flask(__name__)
+CORS(app)
+
 
 # ---------------- GLOBAL STATE ----------------
 blockchain = Blockchain()
