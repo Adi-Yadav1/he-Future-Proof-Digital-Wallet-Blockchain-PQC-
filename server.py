@@ -33,7 +33,7 @@ miner_wallet = Wallet()
 
 @app.route("/register", methods=["POST"])
 def register():
-    """Register a new user with username and password."""
+    """Register a new user with username and password. Auto-generates wallet."""
     data = request.json
     
     # Validate input
@@ -42,7 +42,6 @@ def register():
     
     username = data.get("username")
     password = data.get("password")
-    wallet_address = data.get("wallet_address", "")
     
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
@@ -57,13 +56,15 @@ def register():
     try:
         user_id = create_user(username.strip(), password)
         
-        # Create profile with wallet address if provided
-        if wallet_address:
-            create_profile(user_id, wallet_address)
+        # Auto-generate wallet for new user
+        wallet = Wallet()
+        wallet_address = wallet.get_address()
+        create_profile(user_id, wallet_address)
         
         return jsonify({
             "message": "User registered successfully",
-            "user_id": user_id
+            "user_id": user_id,
+            "wallet_address": wallet_address
         }), 201
     except ValueError as e:
         # Username already exists
