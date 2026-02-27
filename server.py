@@ -9,7 +9,8 @@ from models import (
     create_profile,
     get_profile,
     get_balance,
-    update_balance
+    update_balance,
+    get_username_by_wallet
 )
 
 from flask_cors import CORS
@@ -302,8 +303,10 @@ def get_chain():
             "hash": block.hash,
             "transactions": [
                 {
-                    "sender": tx.sender,
-                    "receiver": tx.receiver,
+                    "sender": get_username_by_wallet(tx.sender),
+                    "sender_address": tx.sender,
+                    "receiver": get_username_by_wallet(tx.receiver),
+                    "receiver_address": tx.receiver,
                     "amount": tx.amount,
                     "timestamp": tx.timestamp
                 }

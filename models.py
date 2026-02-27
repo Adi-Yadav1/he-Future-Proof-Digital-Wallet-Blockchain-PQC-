@@ -196,3 +196,28 @@ def update_balance(user_id, amount):
     conn.close()
     
     return new_balance
+
+
+def get_username_by_wallet(wallet_address):
+    """Get username from wallet address.
+    
+    Args:
+        wallet_address: Wallet address string
+    
+    Returns:
+        Username or wallet address if not found
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT u.username 
+        FROM users u 
+        JOIN profiles p ON u.id = p.user_id 
+        WHERE p.wallet_address = ?
+    """, (wallet_address,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result[0] if result else wallet_address
