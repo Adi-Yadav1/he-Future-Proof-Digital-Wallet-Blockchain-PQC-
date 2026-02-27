@@ -108,20 +108,28 @@ def login():
 def profile(user_id):
     profile = get_profile(user_id)
     balance = get_balance(user_id)
+    
+    # If profile doesn't exist but user exists, create it
+    if not profile and balance is not None:
+        wallet = Wallet()
+        wallet_address = wallet.get_address()
+        create_profile(user_id, wallet_address)
+        profile = get_profile(user_id)
+    
     if profile:
         return jsonify({
             "wallet_address": profile[0],
             "created_at": profile[1],
             "balance": balance
         })
-    return jsonify({"message": "Profile not found"}), 404
+    return jsonify({"error": "User not found"}), 404
 
 
 @app.route("/balance/<int:user_id>", methods=["GET"])
 def get_user_balance(user_id):
     """Get current balance of user."""
     balance = get_balance(user_id)
-    if balance is None or balance == 0:
+    if balance is None:
         return jsonify({"error": "User not found"}), 404
     return jsonify({
         "user_id": user_id,

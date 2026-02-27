@@ -143,7 +143,7 @@ def get_balance(user_id):
         user_id: User ID
     
     Returns:
-        Balance amount or 0 if user not found
+        Balance amount, 0 if user has 0 balance, or None if user not found
     """
     conn = get_db()
     cursor = conn.cursor()
@@ -156,7 +156,8 @@ def get_balance(user_id):
     result = cursor.fetchone()
     conn.close()
     
-    return result[0] if result else 0
+    # Return None if user doesn't exist, otherwise return balance (can be 0)
+    return result[0] if result is not None else None
 
 
 def update_balance(user_id, amount):
