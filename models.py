@@ -17,7 +17,8 @@ def init_db():
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL
+        password_hash TEXT NOT NULL,
+        balance REAL DEFAULT 1000
     )
     """)
 
@@ -133,3 +134,65 @@ def get_profile(user_id):
     profile = cursor.fetchone()
     conn.close()
     return profile
+
+
+def get_balance(user_id):
+    """Get user balance.
+    
+    Args:
+        user_id: User ID
+    
+    Returns:
+        Balance amount or 0 if user not found
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT balance FROM users WHERE id = ?",
+        (user_id,)
+    )
+
+    result = cursor.fetchone()
+    conn.close()
+    
+    return result[0] if result else 0
+
+
+def update_balance(user_id, amount):
+    """Update user balance.
+    
+    Args:
+        user_id: User ID
+        amount: Amount to add (can be negative for withdrawal)
+    
+    Returns:
+        New balance or None if user not found
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Check current balance
+    cursor.execute(
+        "SELECT balance FROM users WHERE id = ?",
+        (user_id,)
+    )
+    result = cursor.fetchone()
+    
+    if not result:
+        conn.close()
+        return None
+    
+    current_balance = result[0]
+    new_balance = current_balance + amount
+    
+    # Update balance
+    cursor.execute(
+        "UPDATE users SET balance = ? WHERE id = ?",
+        (new_balance, user_id)
+    )
+    
+    conn.commit()
+    conn.close()
+    
+    return new_balance

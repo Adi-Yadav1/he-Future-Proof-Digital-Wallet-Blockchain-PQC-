@@ -7,7 +7,9 @@ from models import (
     create_user,
     authenticate_user,
     create_profile,
-    get_profile
+    get_profile,
+    get_balance,
+    update_balance
 )
 
 from flask_cors import CORS
@@ -104,12 +106,26 @@ def login():
 @app.route("/profile/<int:user_id>", methods=["GET"])
 def profile(user_id):
     profile = get_profile(user_id)
+    balance = get_balance(user_id)
     if profile:
         return jsonify({
             "wallet_address": profile[0],
-            "created_at": profile[1]
+            "created_at": profile[1],
+            "balance": balance
         })
     return jsonify({"message": "Profile not found"}), 404
+
+
+@app.route("/balance/<int:user_id>", methods=["GET"])
+def get_user_balance(user_id):
+    """Get current balance of user."""
+    balance = get_balance(user_id)
+    if balance is None or balance == 0:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify({
+        "user_id": user_id,
+        "balance": balance
+    }), 200
 
 
 @app.route("/create_wallet/<int:user_id>", methods=["POST"])
@@ -137,6 +153,7 @@ def send_transaction():
     sender = data.get("sender")
     receiver = data.get("receiver")
     amount = data.get("amount")
+    user_id = data.get("user_id")  # Get user_id to deduct balance
     
     if not sender or not receiver or not amount:
         return jsonify({"error": "Missing sender, receiver, or amount"}), 400
@@ -147,6 +164,12 @@ def send_transaction():
             return jsonify({"error": "Amount must be greater than 0"}), 400
     except ValueError:
         return jsonify({"error": "Invalid amount"}), 400
+    
+    # Check if user has sufficient balance
+    if user_id:
+        balance = get_balance(user_id)
+        if balance < amount:
+            return jsonify({"error": f"Insufficient balance. You have {balance}"}), 400
     
     # Create a wallet for this transaction (temporary solution)
     # TODO: Store user wallets in database and retrieve them
@@ -183,6 +206,10 @@ def send_transaction():
     if not tx.verify():
         return jsonify({"error": "Transaction verification failed"}), 400
     
+    # Deduct balance from sender if user_id provided
+    if user_id:
+        new_balance = update_balance(user_id, -amount)
+    
     # Add to transaction pool
     transaction_pool.append(tx)
     
@@ -193,7 +220,8 @@ def send_transaction():
             "receiver": receiver,
             "amount": amount,
             "timestamp": timestamp
-        }
+        },
+        "new_balance": new_balance if user_id else None
     }), 200
 
 
