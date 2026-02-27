@@ -210,6 +210,24 @@ def send_transaction():
     if user_id:
         new_balance = update_balance(user_id, -amount)
     
+    # Find receiver user_id by wallet address and credit their balance
+    # Try to match receiver address with a user's wallet
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT user_id FROM profiles WHERE wallet_address = ?",
+            (receiver,)
+        )
+        receiver_profile = cursor.fetchone()
+        conn.close()
+        
+        if receiver_profile:
+            receiver_user_id = receiver_profile[0]
+            update_balance(receiver_user_id, amount)  # Credit receiver
+    except Exception as e:
+        print(f"Warning: Could not credit receiver: {e}")
+    
     # Add to transaction pool
     transaction_pool.append(tx)
     
@@ -282,7 +300,15 @@ def get_chain():
             "timestamp": block.timestamp,
             "previous_hash": block.previous_hash,
             "hash": block.hash,
-            "transactions": len(block.transactions)
+            "transactions": [
+                {
+                    "sender": tx.sender,
+                    "receiver": tx.receiver,
+                    "amount": tx.amount,
+                    "timestamp": tx.timestamp
+                }
+                for tx in block.transactions
+            ]
         }
         for block in blockchain.chain
     ])
