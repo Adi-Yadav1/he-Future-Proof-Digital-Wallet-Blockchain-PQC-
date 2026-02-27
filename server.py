@@ -339,6 +339,77 @@ def status():
     }
 
 
+# ---------------- ADMIN ROUTES ----------------
+
+@app.route("/admin/clear_database", methods=["POST"])
+def admin_clear_database():
+    """Clear all database and blockchain data. WARNING: This is irreversible!"""
+    global blockchain, transaction_pool, ledger
+    
+    try:
+        import sqlite3
+        import os
+        
+        # Clear database
+        conn = sqlite3.connect("database/database.db")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM profiles")
+        cursor.execute("DELETE FROM users")
+        cursor.execute("DELETE FROM sqlite_sequence")
+        conn.commit()
+        conn.close()
+        
+        # Clear blockchain files
+        if os.path.exists("data/blockchain.json"):
+            os.remove("data/blockchain.json")
+        if os.path.exists("data/ledger.json"):
+            os.remove("data/ledger.json")
+        
+        # Reset in-memory state
+        blockchain = Blockchain()
+        ledger = Ledger()
+        transaction_pool = []
+        
+        return jsonify({
+            "message": "✅ Database and blockchain cleared successfully!",
+            "status": "cleared"
+        }), 200
+    
+    except Exception as e:
+        return jsonify({
+            "error": f"Failed to clear database: {str(e)}",
+            "status": "failed"
+        }), 500
+
+
+@app.route("/admin/status", methods=["GET"])
+def admin_status():
+    """Get database and blockchain statistics."""
+    try:
+        import sqlite3
+        
+        conn = sqlite3.connect("database/database.db")
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM profiles")
+        profile_count = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return jsonify({
+            "users": user_count,
+            "profiles": profile_count,
+            "blocks": len(blockchain.chain),
+            "pending_transactions": len(transaction_pool)
+        }), 200
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ---------------- START SERVER ----------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
