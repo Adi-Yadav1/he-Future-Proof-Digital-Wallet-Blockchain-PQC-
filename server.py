@@ -32,22 +32,33 @@ if loaded_chain:
 miner_wallet = Wallet()
 
 
+def _get_request_payload():
+    """Return request payload from JSON first, then form-data as fallback."""
+    return request.get_json(silent=True) or request.form.to_dict() or {}
+
+
+def _extract_credentials(data):
+    """Accept username/password and email/password (email maps to username)."""
+    username = (data.get("username") or data.get("email") or "").strip()
+    password = data.get("password") or ""
+    return username, password
+
+
 # ---------------- AUTH ROUTES ----------------
 
 @app.route("/register", methods=["POST"])
 def register():
     """Register a new user with username and password. Auto-generates wallet."""
-    data = request.json
+    data = _get_request_payload()
     
     # Validate input
     if not data:
         return jsonify({"error": "No data provided"}), 400
     
-    username = data.get("username")
-    password = data.get("password")
+    username, password = _extract_credentials(data)
     
     if not username or not password:
-        return jsonify({"error": "Missing username or password"}), 400
+        return jsonify({"error": "Missing username/email or password"}), 400
     
     # Validate username and password length
     if len(username.strip()) < 3:
@@ -57,7 +68,7 @@ def register():
         return jsonify({"error": "Password must be at least 4 characters"}), 400
     
     try:
-        user_id = create_user(username.strip(), password)
+        user_id = create_user(username, password)
         
         # Auto-generate wallet for new user
         wallet = Wallet()
@@ -80,20 +91,19 @@ def register():
 @app.route("/login", methods=["POST"])
 def login():
     """Authenticate user and return user_id."""
-    data = request.json
+    data = _get_request_payload()
     
     # Validate input
     if not data:
         return jsonify({"error": "No data provided"}), 400
     
-    username = data.get("username")
-    password = data.get("password")
+    username, password = _extract_credentials(data)
     
     if not username or not password:
-        return jsonify({"error": "Missing username or password"}), 400
+        return jsonify({"error": "Missing username/email or password"}), 400
     
     # Authenticate user
-    user_id = authenticate_user(username.strip(), password)
+    user_id = authenticate_user(username, password)
     
     if user_id:
         return jsonify({
