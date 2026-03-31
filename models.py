@@ -222,3 +222,107 @@ def get_username_by_wallet(wallet_address):
     conn.close()
     
     return result[0] if result else wallet_address
+
+
+def get_user_id_by_wallet(wallet_address):
+    """Get user_id from wallet address.
+
+    Args:
+        wallet_address: Wallet address string
+
+    Returns:
+        user_id if found, else None
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT user_id FROM profiles WHERE wallet_address = ?",
+        (wallet_address,)
+    )
+
+    result = cursor.fetchone()
+    conn.close()
+
+    return result[0] if result else None
+
+
+def transfer_balance_atomic(sender_user_id, receiver_wallet_address, amount):
+    """Atomically debit sender and credit local receiver.
+
+    Args:
+        sender_user_id: Sender user ID
+        receiver_wallet_address: Receiver wallet address
+        amount: Transfer amount (must be > 0)
+
+    Returns:
+        Dict with sender/receiver balance updates
+
+    Raises:
+        ValueError: On validation errors (invalid sender, insufficient funds, etc.)
+        RuntimeError: On data integrity issues
+    """
+    if amount <= 0:
+        raise ValueError("Amount must be greater than 0")
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    try:
+        # Lock for write up-front so debit+credit are committed together or rolled back together.
+        cursor.execute("BEGIN IMMEDIATE")
+
+        cursor.execute(
+            "SELECT balance FROM users WHERE id = ?",
+            (sender_user_id,)
+        )
+        sender_row = cursor.fetchone()
+        if not sender_row:
+            raise ValueError("Sender user not found")
+
+        sender_balance = sender_row[0]
+        if sender_balance < amount:
+            raise ValueError(f"Insufficient balance. You have {sender_balance}")
+
+        sender_new_balance = sender_balance - amount
+        cursor.execute(
+            "UPDATE users SET balance = ? WHERE id = ?",
+            (sender_new_balance, sender_user_id)
+        )
+
+        cursor.execute(
+            "SELECT user_id FROM profiles WHERE wallet_address = ?",
+            (receiver_wallet_address,)
+        )
+        receiver_row = cursor.fetchone()
+
+        receiver_user_id = receiver_row[0] if receiver_row else None
+        receiver_new_balance = None
+
+        if receiver_user_id is not None:
+            cursor.execute(
+                "SELECT balance FROM users WHERE id = ?",
+                (receiver_user_id,)
+            )
+            receiver_balance_row = cursor.fetchone()
+            if not receiver_balance_row:
+                raise RuntimeError("Receiver profile exists but user record is missing")
+
+            receiver_new_balance = receiver_balance_row[0] + amount
+            cursor.execute(
+                "UPDATE users SET balance = ? WHERE id = ?",
+                (receiver_new_balance, receiver_user_id)
+            )
+
+        conn.commit()
+        return {
+            "sender_new_balance": sender_new_balance,
+            "receiver_user_id": receiver_user_id,
+            "receiver_new_balance": receiver_new_balance,
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

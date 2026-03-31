@@ -9,8 +9,8 @@ from models import (
     create_profile,
     get_profile,
     get_balance,
-    update_balance,
-    get_username_by_wallet
+    get_username_by_wallet,
+    transfer_balance_atomic
 )
 
 from flask_cors import CORS
@@ -184,11 +184,11 @@ def send_transaction():
     except ValueError:
         return jsonify({"error": "Invalid amount"}), 400
     
-    # Check if user has sufficient balance
-    if user_id:
-        balance = get_balance(user_id)
-        if balance < amount:
-            return jsonify({"error": f"Insufficient balance. You have {balance}"}), 400
+    if user_id is not None:
+        try:
+            user_id = int(user_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid user_id"}), 400
     
     # Create a wallet for this transaction (temporary solution)
     # TODO: Store user wallets in database and retrieve them
@@ -225,27 +225,17 @@ def send_transaction():
     if not tx.verify():
         return jsonify({"error": "Transaction verification failed"}), 400
     
-    # Deduct balance from sender if user_id provided
-    if user_id:
-        new_balance = update_balance(user_id, -amount)
-    
-    # Find receiver user_id by wallet address and credit their balance
-    # Try to match receiver address with a user's wallet
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT user_id FROM profiles WHERE wallet_address = ?",
-            (receiver,)
-        )
-        receiver_profile = cursor.fetchone()
-        conn.close()
-        
-        if receiver_profile:
-            receiver_user_id = receiver_profile[0]
-            update_balance(receiver_user_id, amount)  # Credit receiver
-    except Exception as e:
-        print(f"Warning: Could not credit receiver: {e}")
+    new_balance = None
+
+    # Apply sender debit + local receiver credit in one DB transaction.
+    if user_id is not None:
+        try:
+            transfer_result = transfer_balance_atomic(user_id, receiver, amount)
+            new_balance = transfer_result["sender_new_balance"]
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception:
+            return jsonify({"error": "Failed to apply transfer"}), 500
     
     # Add to transaction pool
     transaction_pool.append(tx)
