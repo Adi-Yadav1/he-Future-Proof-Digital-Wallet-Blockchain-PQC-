@@ -1,2 +1,13 @@
 flask
+flask-cors
 werkzeug
+pqcrypto
+flask-socketio
+requests
+cryptography
+pytest
+pytest-cov
+reportlab
+matplotlib
+graphviz
+ecdsa

@@ -12,7 +12,10 @@ class Block:
         previous_hash,
         signature=None,
         public_key=None,
-        timestamp=None
+        timestamp=None,
+        nonce=0,
+        miner=None,
+        miner_node_id=None,
     ):
         self.index = index
         self.timestamp = timestamp or time.time()
@@ -20,6 +23,9 @@ class Block:
         self.previous_hash = previous_hash
         self.signature = signature
         self.public_key = public_key
+        self.nonce = nonce
+        self.miner = miner
+        self.miner_node_id = miner_node_id
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
@@ -30,10 +36,24 @@ class Block:
             "transactions": [
                 tx.calculate_hash() for tx in self.transactions
             ],
-            "previous_hash": self.previous_hash
+            "previous_hash": self.previous_hash,
         }
+        if self.nonce is not None:
+            block_data["nonce"] = self.nonce
+        if self.miner is not None:
+            block_data["miner"] = self.miner
+        if self.miner_node_id is not None:
+            block_data["miner_node_id"] = self.miner_node_id
         block_string = json.dumps(block_data, sort_keys=True)
         return hashlib.sha256(block_string.encode()).hexdigest()
+
+    def mine_block(self, difficulty):
+        """Proof-of-work mining: find nonce so hash has required prefix."""
+        target = "0" * difficulty
+        self.hash = self.calculate_hash()
+        while self.hash[:difficulty] != target:
+            self.nonce += 1
+            self.hash = self.calculate_hash()
 
     def verify_block_signature(self):
         """Verify PQC signature of the block."""

@@ -4,7 +4,8 @@ from wallet import Wallet
 from transaction import Transaction
 
 # ---------------- CONFIG ----------------
-SERVER_URL = "https://he-future-proof-digital-wallet.onrender.com"
+import os
+SERVER_URL = os.getenv("API_BASE_URL", "http://localhost:5000")
 
 st.set_page_config(page_title="Quantum-Resistant Blockchain Wallet", layout="centered")
 
@@ -120,11 +121,8 @@ def dashboard():
                     "receiver": receiver,
                     "amount": amount,
                     "timestamp": temp_tx.timestamp,
-                    "signature": [s.hex() for s in signature],
-                    "public_key": [
-                        (pk0.hex(), pk1.hex())
-                        for pk0, pk1 in st.session_state.wallet.public_key
-                    ]
+                    "signature": signature,
+                    "public_key": st.session_state.wallet.public_key
                 }
 
                 r = requests.post(f"{SERVER_URL}/add_transaction", json=payload)

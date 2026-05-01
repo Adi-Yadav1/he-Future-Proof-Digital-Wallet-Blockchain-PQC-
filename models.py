@@ -46,8 +46,11 @@ def create_user(username, password):
         (username, password_hash)
     )
 
+    user_id = cursor.lastrowid
+
     conn.commit()
     conn.close()
+    return user_id
 
 
 def authenticate_user(username, password):
